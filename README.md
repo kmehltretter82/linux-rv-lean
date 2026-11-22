@@ -18,8 +18,10 @@ The theorem concerns a mathematical model of table generation and lookup. A clai
 
 | Source | Role in the Lean development |
 | --- | --- |
-| Ramadge and Wonham, *Supervisory Control of a Class of Discrete Event Processes* (1987) | Start with the existing Prove2Me generator, partial transition function, and finite-word execution. Its **generated language** consists of all executable traces. Its **marked language** selects the traces ending in designated states. The monitor’s first-error property uses the generated language. Both parts of the supervisor-existence Theorem 6.1 already have proofs on Prove2Me. [Paper](https://doi.org/10.1137/0325013) · [Synthesis mission](https://prove2.me/missions/bad7aaf3-40f1-4e24-aa6d-bd9bf41b9023) · [Quotient mission](https://prove2.me/missions/1d91bb1c-e3ad-4b2b-b153-18a2a9c7e0b8) |
+| Ramadge and Wonham, *Supervisory Control of a Class of Discrete Event Processes* (1987) | Reuse the published generator, partial transition function, and finite-word execution. Its **generated language** consists of all executable traces. Its **marked language** selects the traces ending in designated states. The monitor’s first-error property uses the generated language. [Paper](https://doi.org/10.1137/0325013) |
 | Cassandras and Lafortune, *Introduction to Discrete Event Systems*, 2nd ed., ch. 2 | Both Linux papers cite this chapter for automata. A candidate textbook mission is the **parallel-composition theorem**. A word over the union of two event alphabets is executable in the composition iff each component can execute its projection of the word. Projection drops events outside that component’s alphabet. This is the foundation for combining Linux submodels. [Chapter, *Languages and Automata*](https://doi.org/10.1007/978-0-387-68612-7_2) |
+
+As of November 22, 2026, Prove2Me lists the two Ramadge–Wonham goals (Theorems 7.1 and 10.1) as proved. All 7 synthesis milestones and all 9 quotient milestones are complete, including both parts of the supervisor-existence Theorem 6.1. The paper’s worked examples in §§11–12 are outside the milestone lists. [Synthesis mission](https://prove2.me/missions/bad7aaf3-40f1-4e24-aa6d-bd9bf41b9023) · [Quotient mission](https://prove2.me/missions/1d91bb1c-e3ad-4b2b-b153-18a2a9c7e0b8)
 
 ## Linux models and follow-up missions
 
