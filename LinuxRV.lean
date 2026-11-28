@@ -6,6 +6,8 @@ import Definitions.Def_ETFA2017_Checker
 import Definitions.Def_ETFA2017_IRQFigure
 import Definitions.Def_EWILI2018_SchedulerSpec
 import Definitions.Def_JSA2020_SyncModel
+import Definitions.Def_ECRTS2020_ResponseTime
+import Definitions.Def_ECRTS2024_SlackCheck
 import LinuxRV.ThreadSync
 import LinuxRV.IRQRevision
 import LinuxRV.IRQExitAnalysis
