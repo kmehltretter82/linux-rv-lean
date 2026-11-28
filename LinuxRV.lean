@@ -8,4 +8,5 @@ import Definitions.Def_EWILI2018_SchedulerSpec
 import Definitions.Def_JSA2020_SyncModel
 import LinuxRV.ThreadSync
 import LinuxRV.IRQRevision
+import LinuxRV.IRQExitAnalysis
 import LinuxRV.IRQVectors
