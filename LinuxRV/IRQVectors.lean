@@ -54,13 +54,13 @@ def fhx : Call := .hard false 1 h1
 def fe : Call := .soft true true soft
 def fx : Call := .soft false true soft
 
-/-- A sequence covers all twelve irqstate edges, in the order visited. -/
-def positive : List Call := [he, hx, se, fhe, fhx, sx, he, fe, fhe, fhx, fx, hx,
-  se, .suspend soft, .resume soft, sx]
+/-- This walk visits each of the twelve irqstate edges once. On RT, the
+adjacent suspend and resume can come from one `sched_switch` handler call. -/
+def positive : List Call := [he, fe, fhe, fhx, fx, hx, se, fhe, fhx,
+  .suspend soft, .resume soft, sx]
 
-def expectedStates : List State := [.hardirq, .idle, .softirq, .hardFromSoft, .softirq,
-  .idle, .hardirq, .softFromHard, .hardFromSoftFromHard, .softFromHard, .hardirq,
-  .idle, .softirq, .idle, .softirq, .idle]
+def expectedStates : List State := [.hardirq, .softFromHard, .hardFromSoftFromHard,
+  .softFromHard, .hardirq, .idle, .softirq, .hardFromSoft, .softirq, .idle, .softirq, .idle]
 
 def states (m : Option State) : List Call → List (Option State × Bool)
   | [] => []

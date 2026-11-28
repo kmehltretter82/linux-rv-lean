@@ -7,7 +7,8 @@ EXTENDS Integers
 \* This is a single-CPU boundary scenario, not all of softirq.c. A hardirq may
 \* occur between every model step for which IRQs are enabled. While it runs,
 \* normal softirq steps pause and the entry and exit event are delivered.
-\* It does not model task switches or more than one hardirq during a softirq.
+\* Hardirqs may recur, with at most one represented hardirq active at a time.
+\* The model omits task switches and ends at the modeled softirq boundary.
 CONSTANTS AtomicEntry, ExitBeforeClear, EarlyEnable, FromHard
 VARIABLES pc, irqEnabled, inHardirq, serving, mon, bad
 vars == <<pc, irqEnabled, inHardirq, serving, mon, bad>>

@@ -21,7 +21,7 @@ TLC reports **PASS**, 1,009 generated and 245 distinct states, depth 9, for type
 
 ## Softirq: targeted boundary microsteps
 
-`IRQSoftirqWindows.tla` uses independently described worker-side counter and tracepoint order from `kernel/softirq.c:182–255`, `:259–270`, `:288–298`, `:876–890` and `:921–942`. It represents one CPU, an already synchronized monitor, one worker or inline IRQ-exit interval, a serving-bit update, entry/exit probes, and at most one hardirq during the interval, allowed between every modeled step where IRQs are enabled. The inline case starts in the outer hardirq state and represents the count conversion in `kernel/softirq.c:523–554`. It does not model task switches, further nested IRQs, probe attach/detach, all instructions within a step, or the full RT/non-RT kernel. The event/guard side follows the checked monitor transcription.
+`IRQSoftirqWindows.tla` uses independently described worker-side counter and tracepoint order from `kernel/softirq.c:182–255`, `:259–270`, `:288–298`, `:876–890` and `:921–942`. It represents one CPU, an already synchronized monitor, one worker or inline IRQ-exit interval, a serving-bit update, and entry/exit probes. It allows repeated hardirqs where IRQs are enabled, with at most one of these hardirqs active at a time. The inline case starts in the outer hardirq state and abstracts the count conversion in `kernel/softirq.c:523–554` through the serving bit and the outer monitor state. The run ends at the modeled softirq boundary. Task switches, further IRQ nesting, probe attachment, and the enclosing IRQ return lie outside the model. The event/guard side follows the checked monitor transcription.
 
 | Configuration | TLC result | Interpretation within the model |
 |---|---|---|
