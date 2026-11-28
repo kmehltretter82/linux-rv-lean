@@ -103,9 +103,312 @@ theorem wakeup_notification_iff (w : List WakeupSpecEvent) (q : WakeupControls) 
   erw [wakeup_run_agrees, run_append_event wakeupGuarded, hq]
   by_cases hg : q.1 ≠ .enabled ∧ q.2 ≠ .noIRQ <;> simp [wakeupGuarded, hg, Option.isSome]
 
-/-- Milestone 1: exact characterization of the `G06 ‖ S17 ‖ S02` wakeup product (ISORC Figs.
-10–12 / JSA Figs. 17–19), its 9 reachable states out of 27, the notification condition, and
-counterexamples showing why both `S17` and `G06` are necessary. -/
+theorem wakeup_consistent_of_reachable {q : WakeupControls × Phase}
+    (h : wakeupReachable q) : wakeupConsistent q := by
+  rcases q with ⟨c, s⟩
+  rcases h with ⟨w, hw⟩
+  exact ((wakeup_reached_iff w c s).mp hw).2.symm
+
+theorem wakeup_reachable_of_consistent {q : WakeupControls × Phase}
+    (h : wakeupConsistent q) : wakeupReachable q := by
+  rcases q with ⟨c, s⟩
+  have hs : s = wakeupPhaseOf c := h
+  subst hs
+  exact wakeup_reachable_iff c (wakeupPhaseOf c) |>.mpr rfl
+
+theorem wakeup_consistent_iff_mem_reachableList (q : WakeupControls × Phase) :
+    wakeupConsistent q ↔ q ∈ wakeupReachableList := by
+  rcases q with ⟨⟨p, i⟩, s⟩
+  cases p <;> cases i <;> cases s <;>
+    simp [wakeupConsistent, wakeupPhaseOf, wakeupReachableList]
+
+/-- M1.1: exact reachable-state characterization for `G06 ‖ S17 ‖ S02`. -/
+theorem milestone1_exact_reachability :
+    (∀ q : WakeupControls × Phase, wakeupReachable q ↔ wakeupConsistent q) ∧
+    (∀ q : WakeupControls × Phase, wakeupReachable q ↔ q ∈ wakeupReachableList) ∧
+    wakeupReachableList.length = 9 := by
+  refine ⟨?_, ?_, wakeupReachableList_length⟩
+  · intro q
+    constructor
+    · exact wakeup_consistent_of_reachable
+    · exact wakeup_reachable_of_consistent
+  · intro q
+    constructor
+    · intro h
+      exact (wakeup_consistent_iff_mem_reachableList q).mp (wakeup_consistent_of_reachable h)
+    · intro h
+      exact wakeup_reachable_of_consistent ((wakeup_consistent_iff_mem_reachableList q).mpr h)
+
+theorem wakeup_step_lift (q : WakeupControls) (e : WakeupSpecEvent) :
+    wakeupProduct.δ e (wakeupLift q) = (wakeupGuarded.δ e q).map wakeupLift := by
+  change wakeupProduct.δ e (withWakeupPhase q) = (wakeupGuarded.δ e q).map withWakeupPhase
+  exact wakeup_step_agrees q e
+
+theorem wakeup_run_lift (q : WakeupControls) (w : List WakeupSpecEvent) :
+    wakeupProduct.runFrom (wakeupLift q) w = (wakeupGuarded.runFrom q w).map wakeupLift := by
+  induction w generalizing q with
+  | nil => rfl
+  | cons e w ih =>
+    erw [runFrom_cons wakeupProduct, runFrom_cons wakeupGuarded, wakeup_step_lift]
+    cases wakeupGuarded.δ e q with
+    | none => rfl
+    | some r =>
+      simp only [Option.map_some, Option.bind_some]
+      exact ih r
+
+theorem wakeup_run_agrees_lift (w : List WakeupSpecEvent) :
+    wakeupProduct.run w = (wakeupGuarded.run w).map wakeupLift := by
+  change wakeupProduct.run w = (wakeupGuarded.run w).map withWakeupPhase
+  exact wakeup_run_agrees w
+
+
+theorem wakeup_exec_iff_guarded (w : List WakeupSpecEvent) :
+    wakeupExec w ↔ wakeupGuardedExec w := by
+  simp [wakeupExec, wakeupGuardedExec, Generator.L, Set.mem_ofPred_eq, Option.isSome_iff_exists]
+  constructor
+  · rintro ⟨q, hq⟩
+    rw [wakeup_run_agrees_lift] at hq
+    cases hg : wakeupGuarded.run w with
+    | none =>
+        simp [hg] at hq
+        cases hq
+    | some r => exact ⟨r, by simpa [hg]⟩
+  · rintro ⟨r, hr⟩
+    exact ⟨wakeupLift r, by rw [wakeup_run_agrees_lift, hr]; rfl⟩
+
+private theorem map_lift_some_iff (x : Option WakeupControls) (t : WakeupControls) :
+    x.map wakeupLift = some (wakeupLift t) ↔ x = some t := by
+  cases x with
+  | none => simp [wakeupLift, withWakeupPhase]
+  | some a =>
+    simp only [wakeupLift, withWakeupPhase, Option.map_some, Option.some.injEq,
+      Prod.mk.injEq]
+    constructor
+    · rintro ⟨h, _⟩
+      exact h
+    · intro h
+      cases h
+      exact ⟨rfl, rfl⟩
+
+private theorem map_lift_some_iff' (x : Option WakeupControls) (q : WakeupControls × Phase) :
+    x.map wakeupLift = some q ↔ x = some (wakeupProj q) ∧ wakeupConsistent q := by
+  cases x with
+  | none =>
+    simp [wakeupLift, withWakeupPhase, wakeupConsistent, wakeupProj]
+  | some a =>
+    rcases q with ⟨c, s⟩
+    simp only [wakeupLift, withWakeupPhase, wakeupConsistent, wakeupProj, Option.map_some,
+      Option.some.injEq, Prod.mk.injEq]
+    constructor
+    · rintro ⟨rfl, rfl⟩
+      exact ⟨rfl, rfl⟩
+    · rintro ⟨rfl, rfl⟩
+      exact ⟨rfl, rfl⟩
+
+
+/-- M1.2: exact run equivalence between the reachable wakeup product and guarded monitor. -/
+theorem milestone1_run_equivalence :
+    wakeupLift wakeupGuarded.q0 = wakeupProduct.q0 ∧
+    (∀ s : WakeupControls, wakeupProj (wakeupLift s) = s) ∧
+    (∀ q : WakeupControls × Phase, wakeupReachable q → wakeupLift (wakeupProj q) = q) ∧
+    (∀ s t : WakeupControls, ∀ e : WakeupSpecEvent,
+      wakeupProduct.δ e (wakeupLift s) = some (wakeupLift t) ↔
+        wakeupGuarded.δ e s = some t) ∧
+    (∀ w : List WakeupSpecEvent,
+      wakeupProduct.run w = (wakeupGuarded.run w).map wakeupLift) ∧
+    (∀ w : List WakeupSpecEvent, ∀ q : WakeupControls × Phase,
+      wakeupProduct.run w = some q ↔
+        wakeupConsistent q ∧ wakeupGuarded.run w = some (wakeupProj q)) ∧
+    (∀ w : List WakeupSpecEvent, wakeupExec w ↔ wakeupGuardedExec w) := by
+  refine ⟨rfl, wakeupProj_lift, ?_, ?_, wakeup_run_agrees_lift, ?_, wakeup_exec_iff_guarded⟩
+  · intro q hq
+    exact wakeupLift_proj_of_consistent (wakeup_consistent_of_reachable hq)
+  · intro s t e
+    rw [wakeup_step_lift]
+    exact map_lift_some_iff (wakeupGuarded.δ e s) t
+  · intro w q
+    rw [wakeup_run_agrees_lift]
+    exact (map_lift_some_iff' (wakeupGuarded.run w : Option WakeupControls) q).trans And.comm
+
+theorem wakeup_notification_enabled_iff_guard (q : WakeupControls × Phase)
+    (h : wakeupReachable q) (a : Notification) :
+    (∃ q', wakeupProduct.δ (.notify a) q = some q') ↔ wakeupGuard q.1 := by
+  rcases q with ⟨c, s⟩
+  have hs : s = wakeupPhaseOf c := wakeup_consistent_of_reachable h
+  subst hs
+  cases c with
+  | mk p i =>
+    cases a <;> cases p <;> cases i <;>
+      simp [wakeupProduct, wakeupControlStep, s02, wakeupPhaseOf, wakeupGuard, disablePhase, enablePhase]
+
+theorem wakeup_notification_self_loop (q q' : WakeupControls × Phase)
+    (h : wakeupReachable q) (a : Notification)
+    (hstep : wakeupProduct.δ (.notify a) q = some q') : q' = q := by
+  rcases q with ⟨c, s⟩
+  have hs : s = wakeupPhaseOf c := wakeup_consistent_of_reachable h
+  subst hs
+  rcases c with ⟨p, i⟩
+  cases a <;> cases p <;> cases i <;>
+    simp [wakeupProduct, wakeupControlStep, s02, wakeupPhaseOf, disablePhase, enablePhase] at hstep ⊢ <;>
+    cases hstep <;> rfl
+
+/-- M1.3: exact enabling condition for `sched_waking`. -/
+theorem milestone1_waking_iff :
+    (∀ q : WakeupControls × Phase, wakeupReachable q →
+      ((∃ q', wakeupProduct.δ (.notify .waking) q = some q') ↔ wakeupGuard q.1)) ∧
+    (∀ q q' : WakeupControls × Phase, wakeupReachable q →
+      wakeupProduct.δ (.notify .waking) q = some q' → q' = q) := by
+  refine ⟨?_, ?_⟩
+  · intro q hq
+    exact wakeup_notification_enabled_iff_guard q hq .waking
+  · intro q q' hq hstep
+    exact wakeup_notification_self_loop q q' hq .waking hstep
+
+/-- M1.4: exact enabling condition for `sched_need_resched`. -/
+theorem milestone1_need_resched_iff :
+    (∀ q : WakeupControls × Phase, wakeupReachable q →
+      ((∃ q', wakeupProduct.δ (.notify .needResched) q = some q') ↔ wakeupGuard q.1)) ∧
+    (∀ q q' : WakeupControls × Phase, wakeupReachable q →
+      wakeupProduct.δ (.notify .needResched) q = some q' → q' = q) := by
+  refine ⟨?_, ?_⟩
+  · intro q hq
+    exact wakeup_notification_enabled_iff_guard q hq .needResched
+  · intro q q' hq hstep
+    exact wakeup_notification_self_loop q q' hq .needResched hstep
+
+private theorem wakeupWithoutS17_project_run {p p' : PreemptState} {i i' : IRQState}
+    {s s' : Phase} {w : List WakeupSpecEvent}
+    (h : wakeupProduct.runFrom ((p, i), s) w = some ((p', i'), s')) :
+    wakeupWithoutS17.runFrom (p, s) w = some (p', s') := by
+  induction w generalizing p i s with
+  | nil =>
+    simp [Generator.runFrom] at h ⊢
+    rcases h with ⟨rfl, rfl, rfl⟩
+    rfl
+  | cons e w ih =>
+    erw [runFrom_cons wakeupProduct] at h
+    erw [runFrom_cons wakeupWithoutS17]
+    cases hstep : wakeupProduct.δ e ((p, i), s) with
+    | none => simp [hstep] at h
+    | some r =>
+      rw [hstep] at h
+      rcases r with ⟨⟨rp, ri⟩, rs⟩
+      have hproj : wakeupWithoutS17.δ e (p, s) = some (rp, rs) := by
+        revert hstep
+        cases e with
+        | preempt a =>
+          cases hp : g06.δ a p <;> cases hs : s02.δ (.preempt a) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutS17, hp, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+        | irq a =>
+          cases hi : s17.δ a i <;> cases hs : s02.δ (.irq a) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutS17, hi, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+        | notify n =>
+          cases hs : s02.δ (.notify n) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutS17, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+      rw [hproj]
+      exact ih h
+
+theorem wakeup_exec_implies_withoutS17 (w : List WakeupSpecEvent) :
+    wakeupExec w → wakeupExecWithoutS17 w := by
+  intro h
+  rcases (Option.isSome_iff_exists.mp h) with ⟨⟨⟨p, i⟩, s⟩, hw⟩
+  have h' := wakeupWithoutS17_project_run (p := .enabled) (i := .noIRQ) (s := .enabled)
+    (p' := p) (i' := i) (s' := s) (w := w)
+    (by simpa [wakeupProduct, Generator.run, g06, s17, s02] using hw)
+  exact Option.isSome_iff_exists.mpr ⟨(p, s), by simpa [wakeupWithoutS17, Generator.run] using h'⟩
+
+/-- M1.5: S17 is necessary; removing it admits false wakeup/need-resched traces. -/
+theorem milestone1_s17_necessity :
+    (∀ a : Notification,
+      wakeupExecWithoutS17
+        [.irq .localDisable, .irq .hwDisable, .notify a]) ∧
+    wakeupExec [.irq .localDisable] ∧
+    ¬ wakeupExec [.irq .localDisable, .irq .hwDisable] ∧
+    (∀ a : Notification,
+      ¬ wakeupExec [.irq .localDisable, .irq .hwDisable, .notify a]) ∧
+    (∀ w, wakeupExec w → wakeupExecWithoutS17 w) ∧
+    (∃ w, wakeupExecWithoutS17 w ∧ ¬ wakeupExec w) := by
+  refine ⟨?_, ?_, ?_, ?_, wakeup_exec_implies_withoutS17, ?_⟩
+  · intro a
+    cases a <;> decide
+  · decide
+  · decide
+  · intro a
+    cases a <;> decide
+  · exact ⟨[.irq .localDisable, .irq .hwDisable, .notify .waking], by decide, by decide⟩
+
+private theorem wakeupWithoutG06_project_run {i i' : IRQState} {p p' : PreemptState}
+    {s s' : Phase} {w : List WakeupSpecEvent}
+    (h : wakeupProduct.runFrom ((p, i), s) w = some ((p', i'), s')) :
+    wakeupWithoutG06.runFrom (i, s) w = some (i', s') := by
+  induction w generalizing i p s with
+  | nil =>
+    simp [Generator.runFrom] at h ⊢
+    rcases h with ⟨rfl, rfl, rfl⟩
+    rfl
+  | cons e w ih =>
+    erw [runFrom_cons wakeupProduct] at h
+    erw [runFrom_cons wakeupWithoutG06]
+    cases hstep : wakeupProduct.δ e ((p, i), s) with
+    | none => simp [hstep] at h
+    | some r =>
+      rw [hstep] at h
+      rcases r with ⟨⟨rp, ri⟩, rs⟩
+      have hproj : wakeupWithoutG06.δ e (i, s) = some (ri, rs) := by
+        revert hstep
+        cases e with
+        | irq a =>
+          cases hi : s17.δ a i <;> cases hs : s02.δ (.irq a) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutG06, hi, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+        | preempt a =>
+          cases hp : g06.δ a p <;> cases hs : s02.δ (.preempt a) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutG06, hp, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+        | notify n =>
+          cases hs : s02.δ (.notify n) s <;>
+            simp [wakeupProduct, wakeupControlStep, wakeupWithoutG06, hs] <;>
+            intro hstep <;> cases hstep <;> rfl
+      rw [hproj]
+      exact ih h
+
+theorem wakeup_exec_implies_withoutG06 (w : List WakeupSpecEvent) :
+    wakeupExec w → wakeupExecWithoutG06 w := by
+  intro h
+  rcases (Option.isSome_iff_exists.mp h) with ⟨⟨⟨p, i⟩, s⟩, hw⟩
+  have h' := wakeupWithoutG06_project_run (i := .noIRQ) (p := .enabled) (s := .enabled)
+    (p' := p) (i' := i) (s' := s) (w := w)
+    (by simpa [wakeupProduct, Generator.run, g06, s17, s02] using hw)
+  exact Option.isSome_iff_exists.mpr ⟨(i, s), by simpa [wakeupWithoutG06, Generator.run] using h'⟩
+
+/-- M1.6: G06 is necessary; removing it admits false wakeup/need-resched traces. -/
+theorem milestone1_g06_necessity :
+    (∀ a : Notification,
+      wakeupExecWithoutG06
+        [.preempt .disable, .preempt .disableSched, .notify a]) ∧
+    wakeupExec [.preempt .disable] ∧
+    ¬ wakeupExec [.preempt .disable, .preempt .disableSched] ∧
+    (∀ a : Notification,
+      ¬ wakeupExec [.preempt .disable, .preempt .disableSched, .notify a]) ∧
+    wakeupExecWithoutG06 [.preempt .disableSched, .preempt .enable] ∧
+    ¬ wakeupExec [.preempt .disableSched, .preempt .enable] ∧
+    (∀ w, wakeupExec w → wakeupExecWithoutG06 w) ∧
+    (∃ w, wakeupExecWithoutG06 w ∧ ¬ wakeupExec w) := by
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, wakeup_exec_implies_withoutG06, ?_⟩
+  · intro a
+    cases a <;> decide
+  · decide
+  · decide
+  · intro a
+    cases a <;> decide
+  · decide
+  · decide
+  · exact ⟨[.preempt .disable, .preempt .disableSched, .notify .waking], by decide, by decide⟩
+
+/-- Parent Milestone 1: split into six independently auditable sub-milestones. -/
 theorem milestone1_wakeup_synchronization :
     (∀ w, wakeupProduct.run w = (wakeupGuarded.run w).map withWakeupPhase) ∧
     (∀ q s, (∃ w, wakeupProduct.run w = some (q, s)) ↔ wakeupPhaseOf q = s) ∧
@@ -115,9 +418,16 @@ theorem milestone1_wakeup_synchronization :
       s02.run [.irq .localDisable, .irq .hwDisable, .notify a] = some .disabled ∧
       s17.run [.localDisable, .hwDisable] = none ∧
       s02.run [.preempt .disable, .preempt .disableSched, .notify a] = some .disabled ∧
-      g06.run [.disable, .disableSched] = none) :=
-  ⟨wakeup_run_agrees, wakeup_reachable_iff, wakeup_notification_iff,
-    fun _ => ⟨rfl, rfl, rfl, rfl⟩⟩
+      g06.run [.disable, .disableSched] = none) := by
+  refine ⟨wakeup_run_agrees, wakeup_reachable_iff, wakeup_notification_iff, ?_⟩
+  intro a
+  exact ⟨
+    (show s02.run [.irq .localDisable, .irq .hwDisable, .notify a] = some .disabled by
+      cases a <;> rfl),
+    rfl,
+    (show s02.run [.preempt .disable, .preempt .disableSched, .notify a] = some .disabled by
+      cases a <;> rfl),
+    rfl⟩
 
 /-! ### Milestone 2: Context-switch conditions (`G06`, `S17`, `S07`, `S08`) -/
 

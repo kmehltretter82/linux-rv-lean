@@ -19,8 +19,45 @@ def wakeupPhaseOf : WakeupControls → Phase
   | (.enabled, _) | (_, .noIRQ) => .oneDisabled
   | (_, _) => .disabled
 
+/-- Number of disabled wakeup controls: preemption off and/or IRQs masked/handling. -/
+def wakeupDisabledCount (q : WakeupControls) : Nat :=
+  (if q.1 ≠ .enabled then 1 else 0) + (if q.2 ≠ .noIRQ then 1 else 0)
+
+theorem wakeupPhaseOf_eq_disabledCount (q : WakeupControls) :
+    wakeupPhaseOf q = match wakeupDisabledCount q with
+      | 0 => .enabled
+      | 1 => .oneDisabled
+      | _ => .disabled := by
+  rcases q with ⟨p, i⟩
+  cases p <;> cases i <;> rfl
+
 def withWakeupPhase (q : WakeupControls) : WakeupControls × Phase :=
   (q, wakeupPhaseOf q)
+
+/-- Consistency invariant: the S02 phase equals the number of disabled controls. -/
+def wakeupConsistent (q : WakeupControls × Phase) : Prop :=
+  q.2 = wakeupPhaseOf q.1
+
+def wakeupLift (q : WakeupControls) : WakeupControls × Phase := withWakeupPhase q
+
+def wakeupProj (q : WakeupControls × Phase) : WakeupControls := q.1
+
+theorem wakeupProj_lift (q : WakeupControls) : wakeupProj (wakeupLift q) = q := rfl
+
+theorem wakeupLift_proj_of_consistent {q : WakeupControls × Phase}
+    (h : wakeupConsistent q) : wakeupLift (wakeupProj q) = q := by
+  rcases q with ⟨c, s⟩
+  simp only [wakeupLift, wakeupProj, withWakeupPhase, wakeupConsistent] at h ⊢
+  exact congrArg (Prod.mk c) h.symm
+
+theorem wakeupConsistent_lift (q : WakeupControls) : wakeupConsistent (wakeupLift q) := rfl
+
+/-- Guard for wakeup/need-resched notifications: preemption off and IRQs off/handling. -/
+def wakeupGuard (q : WakeupControls) : Prop :=
+  q.1 ≠ .enabled ∧ q.2 ≠ .noIRQ
+
+instance wakeupGuardDecidable (q : WakeupControls) : Decidable (wakeupGuard q) :=
+  inferInstanceAs (Decidable (_ ∧ _))
 
 def wakeupControlStep (e : WakeupSpecEvent) (q : WakeupControls) : Option WakeupControls :=
   match e with
@@ -46,6 +83,72 @@ def wakeupGuarded : Generator WakeupSpecEvent where
   δ e q := match e with
     | .notify _ => if q.1 ≠ .enabled ∧ q.2 ≠ .noIRQ then some q else none
     | .preempt _ | .irq _ => wakeupControlStep e q
+
+/-- Reachability in the full wakeup product. -/
+def wakeupReachable (q : WakeupControls × Phase) : Prop :=
+  ∃ w, wakeupProduct.run w = some q
+
+/-- Executable trace in the full wakeup product. -/
+def wakeupExec (w : List WakeupSpecEvent) : Prop :=
+  w ∈ wakeupProduct.L
+
+instance (w : List WakeupSpecEvent) : Decidable (wakeupExec w) :=
+  inferInstanceAs (Decidable ((wakeupProduct.run w).isSome = true))
+
+/-- Executable trace in the guarded wakeup monitor. -/
+def wakeupGuardedExec (w : List WakeupSpecEvent) : Prop :=
+  w ∈ wakeupGuarded.L
+
+instance (w : List WakeupSpecEvent) : Decidable (wakeupGuardedExec w) :=
+  inferInstanceAs (Decidable ((wakeupGuarded.run w).isSome = true))
+
+/-- The nine consistent wakeup product states. -/
+def wakeupReachableList : List (WakeupControls × Phase) :=
+  [ ((PreemptState.enabled, IRQState.noIRQ), Phase.enabled)
+  , ((PreemptState.enabled, IRQState.masked), Phase.oneDisabled)
+  , ((PreemptState.enabled, IRQState.handling), Phase.oneDisabled)
+  , ((PreemptState.disabled, IRQState.noIRQ), Phase.oneDisabled)
+  , ((PreemptState.disabled, IRQState.masked), Phase.disabled)
+  , ((PreemptState.disabled, IRQState.handling), Phase.disabled)
+  , ((PreemptState.scheduling, IRQState.noIRQ), Phase.oneDisabled)
+  , ((PreemptState.scheduling, IRQState.masked), Phase.disabled)
+  , ((PreemptState.scheduling, IRQState.handling), Phase.disabled) ]
+
+theorem wakeupReachableList_length : wakeupReachableList.length = 9 := rfl
+
+/-- Reduced wakeup product without `S17`: `G06 || S02` over the same 10-event alphabet. -/
+def wakeupWithoutS17 : Generator WakeupSpecEvent where
+  Q := PreemptState × Phase
+  q0 := (.enabled, .enabled)
+  Qm := {(.enabled, .enabled)}
+  δ e q := do
+    let p ← match e with
+      | .preempt a => g06.δ a q.1
+      | .irq _ | .notify _ => some q.1
+    let phase ← s02.δ e q.2
+    pure (p, phase)
+
+/-- Reduced wakeup product without `G06`: `S17 || S02` over the same 10-event alphabet. -/
+def wakeupWithoutG06 : Generator WakeupSpecEvent where
+  Q := IRQState × Phase
+  q0 := (.noIRQ, .enabled)
+  Qm := {(.noIRQ, .enabled)}
+  δ e q := do
+    let i ← match e with
+      | .irq a => s17.δ a q.1
+      | .preempt _ | .notify _ => some q.1
+    let phase ← s02.δ e q.2
+    pure (i, phase)
+
+def wakeupExecWithoutS17 (w : List WakeupSpecEvent) : Prop := w ∈ wakeupWithoutS17.L
+
+instance (w : List WakeupSpecEvent) : Decidable (wakeupExecWithoutS17 w) :=
+  inferInstanceAs (Decidable ((wakeupWithoutS17.run w).isSome = true))
+
+def wakeupExecWithoutG06 (w : List WakeupSpecEvent) : Prop := w ∈ wakeupWithoutG06.L
+
+instance (w : List WakeupSpecEvent) : Decidable (wakeupExecWithoutG06 w) :=
+  inferInstanceAs (Decidable ((wakeupWithoutG06.run w).isSome = true))
 
 /-! ### Context-switch sub-models (`S07`, `S08`, and composition with `G06`, `S17`) -/
 
