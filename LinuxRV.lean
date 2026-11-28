@@ -12,3 +12,4 @@ import LinuxRV.ThreadSync
 import LinuxRV.IRQRevision
 import LinuxRV.IRQExitAnalysis
 import LinuxRV.IRQVectors
+import LinuxRV.IRQStateObservability
