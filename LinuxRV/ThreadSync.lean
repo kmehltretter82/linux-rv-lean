@@ -711,15 +711,16 @@ theorem unified_synchronization_laws (w : List SyncEvent) (p : PreemptState)
     rw [published_step_mem_L_iff w (p, i, c) (.taskState t) h]
     cases i <;> simp [canonicalSyncModel]
 
-/-- Main mission theorem for ISORC 2019 / JSA 2020 PREEMPT_RT thread synchronization:
+/-- Main mission theorem for the selected seven-automaton ISORC 2019 / JSA 2020
+PREEMPT_RT thread-synchronization subsystem:
 1. The seven-automaton product `publishedSyncModel` is Ramadge–Wonham nonblocking and
    exact-bisimilar to the 18-state trim `canonicalSyncModel`.
 2. After every legal prefix, wakeup/need-resched, context-switch, IRQ-locking, and
    IRQ-handler exclusion obey their exact semantic characterizations.
 3. For every finite trace, the compiled SEFM 2019 table-driven monitor accepts iff all
-   seven component projections accept, and on rejection identifies the exact zero-based
-   position, core state, and event where at least one participating component has no
-   defined transition. -/
+   seven component projections accept, and on rejection reports the zero-based index,
+   encoded core state, and encoded event together with a proof that at least one
+   participating component blocks at that transition. -/
 theorem jsa2020_thread_sync_main :
     (publishedSyncModel.CoAccessible ∧
       canonicalSyncModel.IsTrim ∧

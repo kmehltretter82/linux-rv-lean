@@ -1,12 +1,12 @@
 import Definitions.Def_RamadgeWonham_Shared_Generator
 import Definitions.Def_CassandrasLafortune_Parallel
 
-/-! Component automata and event alphabet for the PREEMPT_RT thread-synchronization
-models of de Oliveira, de Oliveira, and Cucinotta:
+/-! Component automata and event alphabet for the selected seven-automaton PREEMPT_RT
+thread-synchronization subsystem of de Oliveira, de Oliveira, and Cucinotta:
 - ISORC 2019, *Untangling the Intricacies of Thread Synchronization in the PREEMPT_RT
-  Linux Kernel*, Figures 10–12 (`G06`, `S17`, `S02`).
+  Linux Kernel*, Figures 10–12 (`G06`, `S02`, `S17`).
 - Journal of Systems Architecture 107 (2020), *A Thread Synchronization Model for the
-  PREEMPT_RT Linux Kernel*, Figures 17–19 (`G06`, `S17`, `S02`), Figures 21–22
+  PREEMPT_RT Linux Kernel*, Figures 17–19 (`G06`, `S02`, `S17`), Figures 21–22
   (`S07`, `S08`), and Figures 33–34 (`S12`, `S22`). -/
 
 namespace JSA2020
@@ -21,7 +21,7 @@ inductive PreemptEvent where
   | enableSched
   deriving DecidableEq
 
-/-- Software and hardware local-IRQ events of `S17` (ISORC Fig. 11 / JSA Fig. 18).
+/-- Software and hardware local-IRQ events of `S17` (ISORC Fig. 12 / JSA Fig. 19).
 Hardware labels correspond to entry to and return from an IRQ handler in the papers. -/
 inductive IRQEvent where
   | localDisable
@@ -30,7 +30,7 @@ inductive IRQEvent where
   | hwEnable
   deriving DecidableEq
 
-/-- Wakeup and reschedule notification events governed by `S02` (ISORC Fig. 12 / JSA Fig. 19). -/
+/-- Wakeup and reschedule notification events governed by `S02` (ISORC Fig. 11 / JSA Fig. 18). -/
 inductive Notification where
   | waking
   | needResched
@@ -141,7 +141,7 @@ def g06View : SyncEvent → Option PreemptEvent
   | .preempt e => some e
   | _ => none
 
-/-- `S17` (ISORC Fig. 11 / JSA Fig. 18): tracks software IRQ masking and hardware IRQ
+/-- `S17` (ISORC Fig. 12 / JSA Fig. 19): tracks software IRQ masking and hardware IRQ
 handling as mutually exclusive states branching from `noIRQ`. -/
 def s17 : Generator IRQEvent where
   Q := IRQState
@@ -158,14 +158,14 @@ def s17View : SyncEvent → Option IRQEvent
   | .irq e => some e
   | _ => none
 
-/-- Ten-event alphabet of `S02` (ISORC Fig. 12 / JSA Fig. 19). -/
+/-- Ten-event alphabet of `S02` (ISORC Fig. 11 / JSA Fig. 18). -/
 inductive WakeupSpecEvent where
   | preempt (e : PreemptEvent)
   | irq (e : IRQEvent)
   | notify (e : Notification)
   deriving DecidableEq
 
-/-- `S02` (ISORC Fig. 12 / JSA Fig. 19): counts disabled controls without distinguishing
+/-- `S02` (ISORC Fig. 11 / JSA Fig. 18): counts disabled controls without distinguishing
 their source; `sched_waking` and `sched_need_resched` loop only in `disabled`. -/
 def s02 : Generator WakeupSpecEvent where
   Q := Phase
